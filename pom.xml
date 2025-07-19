@@ -49,6 +49,12 @@
 		</dependency>
 
 		<dependency>
+			<groupId>com.arpajit.holidayplanner</groupId>
+			<artifactId>dto</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+
+		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
 		</dependency>
