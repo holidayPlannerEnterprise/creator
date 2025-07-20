@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.arpajit.holidayplanner.dto.*;
+import com.arpajit.holidayplanner.data.model.*;
+import com.arpajit.holidayplanner.data.repository.*;
 
 @Component
 public class HolidaysConsumer {
@@ -16,11 +18,21 @@ public class HolidaysConsumer {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private MessageAuditRepository messageAuditRepository;
+
     @KafkaListener(topics = "holidayplanner-creator", groupId = "holidayplanner-controller")
     public void consumedPayload(String payload, Acknowledgment act) throws Exception {
         logger.info("Received Kafka response: {}", payload);
         act.acknowledge();
         ConsumeMessage message = objectMapper.readValue(payload, ConsumeMessage.class);
+        MessageAudits messageAudits = new MessageAudits();
+        messageAudits.setMsgRequestType(message.getRequestType());
+        messageAudits.setMsgSourceService(message.getSourceService());
+        messageAudits.setMsgTimestamp(message.getTimestamp());
+        messageAudits.setMsgPayload(message.getPayload());
+        messageAudits.setMsgStatus("DROPPED");
+        messageAuditRepository.save(messageAudits);
         switch (message.getRequestType()) {
             case "GET_ALL_HOLIDAYS":
                 logger.info("Requested for {}", message.getRequestType());
