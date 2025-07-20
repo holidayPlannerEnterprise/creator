@@ -31,7 +31,7 @@ public class HolidaysConsumer {
         messageAudits.setMsgSourceService(message.getSourceService());
         messageAudits.setMsgTimestamp(message.getTimestamp());
         messageAudits.setMsgPayload(message.getPayload());
-        messageAudits.setMsgStatus("DROPPED");
+        messageAudits.setMsgStatus("RECEIVED");
         messageAuditRepository.save(messageAudits);
         switch (message.getRequestType()) {
             case "GET_ALL_HOLIDAYS":
