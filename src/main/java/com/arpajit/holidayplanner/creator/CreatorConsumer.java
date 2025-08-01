@@ -1,5 +1,7 @@
 package com.arpajit.holidayplanner.creator;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -28,9 +30,11 @@ public class CreatorConsumer {
     @KafkaListener(topics = "holidayplanner-creator", groupId = "holidayplanner-controller")
     public void consumedPayload(String payload,
                                 @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic,
+                                @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId,
                                 Acknowledgment act)
                                 throws Exception {
         logger.info("Received Kafka response: {}", payload);
+        logger.info("Received Kafka headers: \n\tREPLY_TOPIC: {}\n\tCORRELATION_ID: {}", replyTopic, correlationId);
         act.acknowledge();
         ConsumeMessage message = objectMapper.readValue(payload, ConsumeMessage.class);
         dataService.updateAudit(message.getTraceId(), "CREATOR_RECEIVED", null);
@@ -38,9 +42,13 @@ public class CreatorConsumer {
         switch (message.getRequestType()) {
             case "GET_ALL_HOLIDAYS":
                 logger.info("Triggering GET_ALL_HOLIDAYS service");
-                String response = "{" + "Status" + ": " + "ok" + "}";
+                String response = "{\"Status\" : \"ok\"}";
+                ProducerRecord<String, String> replyRecord = new ProducerRecord<>(replyTopic, response);
+                replyRecord.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, correlationId));
                 dataService.updateAudit(message.getTraceId(), "CONTROLLER_SENT", null);
-                kafkaTemplate.send(replyTopic, response);
+                logger.info("Sending reply to Controller: {}", response);
+                kafkaTemplate.send(replyRecord);
+                // kafkaTemplate.send(replyTopic, response);
                 break;
             default:
                 logger.warn("{} does not match any request type", message.getRequestType());
