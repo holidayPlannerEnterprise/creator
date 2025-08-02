@@ -1,18 +1,15 @@
 package com.arpajit.holidayplanner.creator;
 
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.internals.RecordHeader;
 import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.arpajit.holidayplanner.dto.*;
+import com.arpajit.holidayplanner.creator.service.CreatorService;
+import com.arpajit.holidayplanner.dto.KafkaMessage;
 
 @Component
 public class CreatorConsumer {
@@ -25,36 +22,43 @@ public class CreatorConsumer {
     private CreatorDataServComm dataService;
 
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private CreatorService creatorService;
 
-    @KafkaListener(topics = "holidayplanner-creator", groupId = "holidayplanner-controller")
-    public void consumedPayload(String payload,
-                                @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic,
+    @Autowired
+    private CreatorProducer creatorProducer;
+
+    @KafkaListener(topics = "holidayplanner-creator", groupId = "holidayplanner")
+    public void consumedPayload(String message,
                                 @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId,
                                 Acknowledgment act)
                                 throws Exception {
-        logger.info("Received Kafka response: {}", payload);
-        logger.info("Received Kafka headers: \n\tREPLY_TOPIC: {}\n\tCORRELATION_ID: {}", replyTopic, correlationId);
+        logger.info("Received Kafka message:{}", message);
         act.acknowledge();
-        ConsumeMessage message = objectMapper.readValue(payload, ConsumeMessage.class);
-        dataService.updateAudit(message.getTraceId(), "CREATOR_RECEIVED", null);
-        logger.info("Requested for {}", message.getRequestType());
-        switch (message.getRequestType()) {
-            case "GET_ALL_HOLIDAYS":
-                logger.info("Triggering GET_ALL_HOLIDAYS service");
-                String response = "{\"Status\" : \"ok\"}";
-                ProducerRecord<String, String> replyRecord = new ProducerRecord<>(replyTopic, response);
-                replyRecord.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, correlationId));
-                dataService.updateAudit(message.getTraceId(), "CONTROLLER_SENT", null);
-                logger.info("Sending reply to Controller: {}", response);
-                kafkaTemplate.send(replyRecord);
-                // kafkaTemplate.send(replyTopic, response);
+
+        // Parsing Message
+        KafkaMessage messageDTO = objectMapper.readValue(message, KafkaMessage.class);
+        messageDTO.setStatus("CREATOR_RECEIVED");
+        logger.info("messageDTO traceID: {}", messageDTO.getTraceId());
+        dataService.updateAudit(messageDTO.getTraceId(),
+                                messageDTO.getStatus(),
+                                messageDTO.getStatusResp());
+
+        // Routing based on request type
+        logger.info("Requested for {}", messageDTO.getRequestType());
+        switch (messageDTO.getRequestType()) {
+            case "GET_ALL_HOLIDAY_DETAILS":
+                logger.info("Triggering GET_ALL_HOLIDAY_DETAILS service");
+                messageDTO.setPayload(creatorService.getAllHolidayDetails());
+                messageDTO.setStatus("DISPATCHER_SENT");
+                creatorProducer.dropToDispatcher(correlationId, messageDTO);
                 break;
             default:
-                logger.warn("{} does not match any request type", message.getRequestType());
-                dataService.updateAudit(message.getTraceId(),
-                                        "FAILED_AT_CREATOR",
-                                        "Request type: "+message.getRequestType()+" not matched in Consumer");
+                logger.warn("{} does not match any request type", messageDTO.getRequestType());
+                messageDTO.setStatus("FAILED_AT_CREATOR");
+                messageDTO.setStatusResp("Request type: "+messageDTO.getRequestType()+" not matched in Creator");
+                dataService.updateAudit(messageDTO.getTraceId(),
+                                        messageDTO.getStatus(),
+                                        messageDTO.getStatusResp());
                 break;
         }
     }
