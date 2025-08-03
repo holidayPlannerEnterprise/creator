@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "dataservice.domain",
+  "type": "java.lang.String",
+  "description": "data service domain"
+}]}
