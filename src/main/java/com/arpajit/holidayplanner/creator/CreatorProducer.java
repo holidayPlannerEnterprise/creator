@@ -9,7 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.stereotype.Component;
 
-import com.arpajit.holidayplanner.dto.KafkaMessage;
+import com.arpajit.holidayplanner.creator.dto.KafkaMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component

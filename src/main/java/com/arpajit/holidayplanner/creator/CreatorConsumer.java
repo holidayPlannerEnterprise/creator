@@ -9,7 +9,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.arpajit.holidayplanner.creator.service.CreatorService;
-import com.arpajit.holidayplanner.dto.KafkaMessage;
+import com.arpajit.holidayplanner.creator.dto.KafkaMessage;
 
 @Component
 public class CreatorConsumer {
